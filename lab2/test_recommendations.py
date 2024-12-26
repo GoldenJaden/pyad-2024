@@ -7,7 +7,7 @@ from sklearn.metrics import mean_absolute_error
 
 class RecsTestCase(unittest.TestCase):
     def test_svd_recs(self):
-        with open('svd.pkl', 'rb') as f:
+        with open('svd_model.pkl', 'rb') as f:
             loaded_svd = pickle.load(f)
         td = pd.read_csv("svd_test.csv")
         predictions = loaded_svd.test(td.values)
@@ -16,7 +16,7 @@ class RecsTestCase(unittest.TestCase):
 
     def test_linreg_recs(self):
         with open('linreg.pkl', 'rb') as f:
-            loaded_linreg = pickle.load(f)
+            loaded_linreg = pickle.load(f)['model']
         td = pd.read_csv("linreg_test.csv")
         y = td.pop("y")
         predictions = loaded_linreg.predict(td)

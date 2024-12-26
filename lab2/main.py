@@ -3,8 +3,12 @@ from linreg_rec import preprocess_books, preprocess_ratings, train_svd, train_re
 from personal_recommendation import get_user_with_most_zero_ratings, recommend_books, preprocess_ratings_for_rec, preprocess_books_for_rec
 import pickle
 from os.path import isfile
+import nltk
 
 def main():
+    nltk.download("stopwords")
+    nltk.download("punkt")
+    nltk.download('punkt_tab')
     books_df = pd.read_csv('./Books.csv')
     ratings_df = pd.read_csv('./Ratings.csv')
 

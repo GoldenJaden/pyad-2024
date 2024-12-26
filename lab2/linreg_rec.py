@@ -10,6 +10,18 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error
 from scipy.sparse import hstack, csr_matrix
 from sklearn.preprocessing import OneHotEncoder
+from nltk.corpus import stopwords
+import nltk
+
+def title_preprocessing(text: str) -> str:
+    # Токенизация
+    tokens = nltk.word_tokenize(text)
+
+    # Удаление стоп-слов и пунктуации
+    stop_words = set(stopwords.words('english'))
+    tokens = [word for word in tokens if word not in stop_words and word.isalnum()]
+
+    return ' '.join(tokens)
 
 def preprocess_books(books_df):
     books_df['Year-Of-Publication'] = pd.to_numeric(books_df['Year-Of-Publication'], errors='coerce')
@@ -46,8 +58,11 @@ def train_svd(ratings_df):
 def train_regressor(books_df, ratings_df):
     merged_df = ratings_df.merge(books_df, on='ISBN')
 
-    tfidf = TfidfVectorizer(max_features=300)
-    title_vectors = tfidf.fit_transform(merged_df['Book-Title'])
+    merged_df['Processed-Title'] = merged_df['Book-Title'].apply(title_preprocessing)
+    print(merged_df)
+
+    tfidf = TfidfVectorizer(max_features=1001)
+    title_vectors = tfidf.fit_transform(merged_df['Processed-Title'])
 
     cat_features = merged_df[['Book-Author', 'Publisher']]
     encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=True)
