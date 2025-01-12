@@ -12,13 +12,13 @@ def main():
     books_df = pd.read_csv('./Books.csv')
     ratings_df = pd.read_csv('./Ratings.csv')
 
-    if not(isfile('./svd_model.pkl')) or not(isfile('./linreg.pkl')):
-        # Препроцессинг
-        preprocessed_books_df = preprocess_books(books_df)
-        preprocessed_ratings_df = preprocess_ratings(ratings_df)
+    # if not(isfile('./svd_model.pkl')) or not(isfile('./linreg.pkl')):
+    # Препроцессинг
+    preprocessed_books_df = preprocess_books(books_df)
+    preprocessed_ratings_df = preprocess_ratings(ratings_df)
 
-        train_svd(preprocessed_ratings_df)
-        train_regressor(preprocessed_books_df, preprocessed_ratings_df)
+    train_svd(preprocessed_ratings_df)
+    tfidf, encoder, scaler = train_regressor(preprocessed_books_df, preprocessed_ratings_df)
 
     preprocessed_books_df = preprocess_books_for_rec(books_df)
     preprocessed_ratings_df = preprocess_ratings_for_rec(ratings_df)
@@ -28,11 +28,7 @@ def main():
         svd_model = pickle.load(file)
 
     with open('linreg.pkl', 'rb') as file:
-        linreg_data = pickle.load(file)
-        linreg_model = linreg_data['model']
-        tfidf = linreg_data['tfidf']
-        encoder = linreg_data['encoder']
-        scaler = linreg_data['scaler']
+        linreg_model = pickle.load(file)
 
     user_id = get_user_with_most_zero_ratings(ratings_df)
 

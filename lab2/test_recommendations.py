@@ -16,7 +16,7 @@ class RecsTestCase(unittest.TestCase):
 
     def test_linreg_recs(self):
         with open('linreg.pkl', 'rb') as f:
-            loaded_linreg = pickle.load(f)['model']
+            loaded_linreg = pickle.load(f)
         td = pd.read_csv("linreg_test.csv")
         y = td.pop("y")
         predictions = loaded_linreg.predict(td)

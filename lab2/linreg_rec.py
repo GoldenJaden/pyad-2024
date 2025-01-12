@@ -25,7 +25,7 @@ def title_preprocessing(text: str) -> str:
 
 def preprocess_books(books_df):
     books_df['Year-Of-Publication'] = pd.to_numeric(books_df['Year-Of-Publication'], errors='coerce')
-    books_df = books_df[books_df['Year-Of-Publication'] <= pd.Timestamp.now().year]
+    books_df = books_df[books_df['Year-Of-Publication'] <= pd.Timestamp.now().year].copy()
     books_df.drop(['Image-URL-S', 'Image-URL-M', 'Image-URL-L'], axis=1, inplace=True)
     books_df.dropna(inplace=True)
     return books_df
@@ -79,7 +79,7 @@ def train_regressor(books_df, ratings_df):
 
     X_train, X_test, y_train, y_test = train_test_split(X_sparse, y, test_size=0.2, random_state=42)
 
-    reg = SGDRegressor(max_iter=1000, tol=1e-3, alpha=0.01, random_state=42)
+    reg = SGDRegressor(max_iter=2000, tol=1e-4, alpha=0.01, penalty='l2', learning_rate='adaptive')
     reg.fit(X_train, y_train)
     y_pred = reg.predict(X_test)
 
@@ -94,4 +94,6 @@ def train_regressor(books_df, ratings_df):
         print("Linear regression training successful with MAE below 1.5")
 
     with open('linreg.pkl', 'wb') as file:
-        pickle.dump({'model': reg, 'tfidf': tfidf, 'encoder': encoder, 'scaler': scaler}, file)
+        pickle.dump(reg, file)
+
+    return tfidf, encoder, scaler
