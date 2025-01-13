@@ -1,6 +1,7 @@
 import pandas as pd
 from surprise import Dataset, Reader, SVD
 from surprise.model_selection import cross_validate
+from surprise.accuracy import mae
 import pickle
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -38,62 +39,56 @@ def preprocess_ratings(ratings_df):
     ratings_df = ratings_df[ratings_df['User-ID'].isin(user_counts[user_counts > 1].index)]
     return ratings_df
 
-def train_svd(ratings_df):
-    reader = Reader(rating_scale=(1, 10))
-    data = Dataset.load_from_df(ratings_df[['User-ID', 'ISBN', 'Book-Rating']], reader)
-    svd = SVD()
+def prepare_data(ratings_df, books_df):
 
-    results = cross_validate(svd, data, measures=['MAE'], cv=5, verbose=True)
-    mean_mae = np.mean(results['test_mae'])
-    print(f'Mean MAE for SVD: {mean_mae}')
+    data = pd.merge(ratings_df, books_df, on='ISBN', how='inner')
 
-    if mean_mae > 1.3:
-        print("Warning: MAE for SVD is above 1.3")
-    else:
-        print("SVD training successful with MAE below 1.3")
+    avg_ratings = data.groupby('ISBN')['Book-Rating'].mean().reset_index()
+    avg_ratings.rename(columns={'Book-Rating': 'Average-Rating'}, inplace=True)
 
-    with open('svd_model.pkl', 'wb') as file:
-        pickle.dump(svd, file)
+    full_data = pd.merge(books_df, avg_ratings, on='ISBN', how='inner')
 
-def train_regressor(books_df, ratings_df):
-    merged_df = ratings_df.merge(books_df, on='ISBN')
+    full_data.dropna(subset=['Book-Title', 'Book-Author', 'Publisher', 'Year-Of-Publication'], inplace=True)
 
-    merged_df['Processed-Title'] = merged_df['Book-Title'].apply(title_preprocessing)
-    print(merged_df)
+    return full_data
 
-    tfidf = TfidfVectorizer(max_features=1001)
-    title_vectors = tfidf.fit_transform(merged_df['Processed-Title'])
+def transform_data(data):
+    tfidf = TfidfVectorizer(max_features=1000)
+    data['Book-Title'] = data['Book-Title'].apply(title_preprocessing)
+    title_vectors = tfidf.fit_transform(data['Book-Title']).toarray()
 
-    cat_features = merged_df[['Book-Author', 'Publisher']]
-    encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=True)
-    cat_sparse = encoder.fit_transform(cat_features)
+    data['Book-Author'] = data['Book-Author'].astype('category').cat.codes
+    data['Publisher'] = data['Publisher'].astype('category').cat.codes
 
-    year_data = merged_df[['Year-Of-Publication']].astype(float)
+    data['Year-Of-Publication'] = pd.to_numeric(data['Year-Of-Publication'], errors='coerce')
+
+    X = pd.concat([
+        pd.DataFrame(title_vectors, index=data.index),
+        data[['Book-Author', 'Publisher', 'Year-Of-Publication']]
+    ], axis=1)
+
+    X.columns = X.columns.astype(str)
+
+    y = data['Average-Rating']
+
+    return X, y, tfidf
+
+def train_regressor(X, y):
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
     scaler = StandardScaler()
-    year_data_scaled = scaler.fit_transform(year_data.values)
-    year_sparse = csr_matrix(year_data_scaled)
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
 
-    X_sparse = hstack([title_vectors, cat_sparse, year_sparse], format='csr')
+    model = SGDRegressor(max_iter=2000, tol=1e-4, alpha=0.01, penalty='l2', learning_rate='adaptive')
+    model.fit(X_train, y_train)
 
-    y = merged_df['Book-Rating']
-
-    X_train, X_test, y_train, y_test = train_test_split(X_sparse, y, test_size=0.2, random_state=42)
-
-    reg = SGDRegressor(max_iter=2000, tol=1e-4, alpha=0.01, penalty='l2', learning_rate='adaptive')
-    reg.fit(X_train, y_train)
-    y_pred = reg.predict(X_test)
-
-    y_pred_clamped = np.clip(y_pred, 1, 10)
-
-    mae = mean_absolute_error(y_test, y_pred_clamped)
-    print(f'MAE for linear regression: {mae}')
-
-    if mae > 1.5:
-        print("Warning: MAE for linear regression is above 1.5")
+    y_pred = model.predict(X_test)
+    mae = mean_absolute_error(y_test, y_pred)
+    print(f'Mean Absolute Error: {mae}')
+    if mae < 1.5:
+        with open("linreg.pkl", "wb") as file:
+            pickle.dump(model, file)
+        print(f"Model saved successfully with MAE: {mae}")
     else:
-        print("Linear regression training successful with MAE below 1.5")
-
-    with open('linreg.pkl', 'wb') as file:
-        pickle.dump(reg, file)
-
-    return tfidf, encoder, scaler
+        print(f"Model not saved. MAE is too high: {mae}")
