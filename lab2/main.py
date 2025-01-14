@@ -10,7 +10,7 @@ import nltk
 # nltk.download('punkt_tab')
 
 def main():
-    books_df = pd.read_csv('./Books.csv')
+    books_df = pd.read_csv('./Books.csv', low_memory=False)
     ratings_df = pd.read_csv('./Ratings.csv')
 
     # Препроцессинг
@@ -36,9 +36,7 @@ def main():
 
     user_id = get_user_with_most_zero_ratings(ratings_df)
 
-    recommendations = recommend_books(user_id, preprocessed_ratings_df, preprocessed_books_df, svd_model, linreg_model, tfidf)
-
-    print(f"{len(recommendations)} recommendations for user {user_id}:\n", recommendations)
+    recommend_books(user_id, preprocessed_ratings_df, preprocessed_books_df, svd_model, linreg_model, tfidf)
 
 if __name__ == "__main__":
     main()
